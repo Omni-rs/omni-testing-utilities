@@ -25,8 +25,8 @@ near-workspaces = { version = "0.13.0", features = [
     "unstable",
 ] }
 hex = "0.4.3"
-near-jsonrpc-primitives = "0.25.0"
-near-primitives = { version = "0.25.0" }
+near-jsonrpc-primitives = ">0.22,<0.26"
+near-primitives = ">0.22,<0.26"
 near-crypto = { version = "0.25.0" }
 near-jsonrpc-client = { git = "https://github.com/EdsonAlcala/near-jsonrpc-client-rs", tag = "v0.12.1" }
 # Bitcoin
