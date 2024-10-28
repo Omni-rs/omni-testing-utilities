@@ -117,7 +117,7 @@ impl<'a> BTCTestContext<'a> {
 
     pub fn generate_to_derived_address(
         &self,
-        derived_address: DerivedAddress,
+        derived_address: &DerivedAddress,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let near_contract_address =
             bitcoin::Address::from_str(&derived_address.address.to_string())?;

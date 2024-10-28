@@ -74,7 +74,7 @@ pub fn get_derived_address(predecessor_id: &AccountId, path: &str) -> DerivedAdd
     }
 }
 
-pub fn get_public_key_hash(derived_address: DerivedAddress) -> Vec<u8> {
+pub fn get_public_key_hash(derived_address: &DerivedAddress) -> Vec<u8> {
     let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
     let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
 
