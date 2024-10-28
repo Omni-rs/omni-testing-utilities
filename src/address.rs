@@ -94,6 +94,26 @@ pub fn get_public_key_hash(derived_address: DerivedAddress) -> Vec<u8> {
     near_contract_script_pubkey.as_bytes().to_vec()
 }
 
+pub fn build_script_sig_as_bytes(
+    derived_address: DerivedAddress,
+    signature: bitcoin::ecdsa::Signature,
+) -> Vec<u8> {
+    // Create the public key from the derived address
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+    let secp_pubkey = bitcoin::secp256k1::PublicKey::from_slice(derived_public_key_bytes_array)
+        .expect("Invalid public key");
+
+    let bitcoin_pubkey = bitcoin::PublicKey::new_uncompressed(secp_pubkey);
+
+    let script_sig_new = Builder::new()
+        .push_slice(signature.serialize())
+        .push_key(&bitcoin_pubkey)
+        .into_script();
+
+    script_sig_new.as_bytes().to_vec()
+}
+
 fn convert_string_to_public_key(encoded: &str) -> Result<PublicKey, String> {
     let base58_part = encoded.strip_prefix("secp256k1:").ok_or("Invalid prefix")?;
 
@@ -171,3 +191,16 @@ mod tests {
         assert_eq!(derived_public_key_hex, "0471f75dc56b971fbe52dd3e80d2f8532eb8905157556df39cb7338a67c80412640c869f717217ba5b916db6d7dc7d6a84220f8251e626adad62cac9c7d6f8e032");
     }
 }
+
+// 2 function
+// pass number of items to get and use this
+// let first_unspent_near_contract = scan_txout_set_result
+// .as_object()
+// .unwrap()
+// .get("unspents")
+// .unwrap()
+// .as_array()
+// .unwrap()
+// .into_iter()
+// .next()
+// .expect("There should be at least one unspent output");
