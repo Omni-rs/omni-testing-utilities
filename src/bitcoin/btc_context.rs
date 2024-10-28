@@ -192,6 +192,27 @@ impl<'a> BTCTestContext<'a> {
         Ok(master_key)
     }
 
+    pub fn scan_utxo_for_address(
+        &self,
+        address: &DerivedAddress,
+    ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+        let near_contract_address = bitcoin::Address::from_str(&address.address.to_string())?;
+        let near_contract_address = near_contract_address
+            .require_network(Network::Regtest)
+            .unwrap();
+
+        let scan_txout_set_result: serde_json::Value = self
+            .client
+            .call(
+                "scantxoutset",
+                &[
+                    json!("start"),
+                    json!([{ "desc": format!("addr({})", near_contract_address) }]),
+                ],
+            )
+            .unwrap();
+    }
+
     pub fn get_utxo_for_address(
         &self,
         address: &Address,
