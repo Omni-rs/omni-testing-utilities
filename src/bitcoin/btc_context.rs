@@ -211,6 +211,8 @@ impl<'a> BTCTestContext<'a> {
                 ],
             )
             .unwrap();
+
+        Ok(scan_txout_set_result)
     }
 
     pub fn get_utxo_for_address(
