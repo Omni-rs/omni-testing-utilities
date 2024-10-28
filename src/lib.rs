@@ -1,9 +1,4 @@
-mod address;
-mod btc_context;
-mod environment;
-mod near;
-
-pub use address::*;
-pub use btc_context::*;
-pub use environment::*;
-pub use near::*;
+pub mod address;
+pub mod btc_context;
+pub mod environment;
+pub mod near;
