@@ -215,6 +215,43 @@ impl<'a> BTCTestContext<'a> {
         Ok(scan_txout_set_result)
     }
 
+    pub fn scan_utxo_for_address_with_count(
+        &self,
+        address: &DerivedAddress,
+        count: usize,
+    ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+        let near_contract_address = bitcoin::Address::from_str(&address.address.to_string())?;
+        let near_contract_address = near_contract_address
+            .require_network(Network::Regtest)
+            .unwrap();
+
+        let scan_txout_set_result: serde_json::Value = self
+            .client
+            .call(
+                "scantxoutset",
+                &[
+                    json!("start"),
+                    json!([{ "desc": format!("addr({})", near_contract_address) }]),
+                ],
+            )
+            .unwrap();
+
+        // Extraer los outputs no gastados
+        let unspents = scan_txout_set_result
+            .as_object()
+            .unwrap()
+            .get("unspents")
+            .unwrap()
+            .as_array()
+            .unwrap();
+
+        // Obtener la cantidad solicitada de elementos
+        let selected_unspents: Vec<serde_json::Value> =
+            unspents.iter().take(count).cloned().collect();
+
+        Ok(selected_unspents)
+    }
+
     pub fn get_utxo_for_address(
         &self,
         address: &Address,
