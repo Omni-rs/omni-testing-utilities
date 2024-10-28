@@ -6,6 +6,7 @@ use bitcoind::AddressType;
 use serde_json::{json, Value};
 use std::str::FromStr as _;
 
+use crate::address::DerivedAddress;
 pub struct UserInfo {
     pub address: Address,
     pub script_pubkey: ScriptBuf,
@@ -112,6 +113,22 @@ impl<'a> BTCTestContext<'a> {
             wpkh,
             compressed_public_key: compressed_pub_key,
         })
+    }
+
+    pub fn generate_to_derived_address(
+        &self,
+        derived_address: DerivedAddress,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let near_contract_address =
+            bitcoin::Address::from_str(&derived_address.address.to_string())?;
+        let near_contract_address = near_contract_address
+            .require_network(Network::Regtest)
+            .unwrap();
+
+        self.client
+            .generate_to_address(101, &near_contract_address)?;
+
+        Ok(())
     }
 
     fn get_master_key_of_regtest_node_p2pkh(

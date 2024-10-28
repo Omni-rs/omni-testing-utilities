@@ -1,3 +1,6 @@
+use bitcoin::hashes::{ripemd160, Hash};
+use bitcoin::opcodes::all::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160};
+use bitcoin::script::Builder;
 use bs58;
 use k256::elliptic_curve::sec1::FromEncodedPoint;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
@@ -54,6 +57,7 @@ pub fn derive_key(public_key: PublicKey, epsilon: Scalar) -> PublicKey {
 }
 
 const ROOT_PUBLIC_KEY: &str = "secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3";
+
 pub struct DerivedAddress {
     pub address: String,
     pub public_key: PublicKey,
@@ -68,6 +72,26 @@ pub fn get_derived_address(predecessor_id: &AccountId, path: &str) -> DerivedAdd
         address,
         public_key: derived_public_key,
     }
+}
+
+pub fn get_public_key_hash(derived_address: DerivedAddress) -> Vec<u8> {
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+
+    // Calculate publish key hash
+    let sha256_hash = Sha256::digest(&derived_public_key_bytes_array);
+    let ripemd160_hash = ripemd160::Hash::hash(&sha256_hash);
+
+    // The script_pubkey for the NEAR contract to be the spender
+    let near_contract_script_pubkey = Builder::new()
+        .push_opcode(OP_DUP)
+        .push_opcode(OP_HASH160)
+        .push_slice(&ripemd160_hash.as_byte_array())
+        .push_opcode(OP_EQUALVERIFY)
+        .push_opcode(OP_CHECKSIG)
+        .into_script();
+
+    near_contract_script_pubkey.as_bytes().to_vec()
 }
 
 fn convert_string_to_public_key(encoded: &str) -> Result<PublicKey, String> {
