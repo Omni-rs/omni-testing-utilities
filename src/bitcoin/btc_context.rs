@@ -195,7 +195,7 @@ impl<'a> BTCTestContext<'a> {
     pub fn scan_utxo_for_address(
         &self,
         address: &DerivedAddress,
-    ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
         let near_contract_address = bitcoin::Address::from_str(&address.address.to_string())?;
         let near_contract_address = near_contract_address
             .require_network(Network::Regtest)
