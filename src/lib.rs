@@ -1,4 +1,7 @@
 pub mod address;
-pub mod btc_context;
+pub mod bitcoin;
 pub mod environment;
 pub mod near;
+pub mod signature;
+
+pub use bitcoind;

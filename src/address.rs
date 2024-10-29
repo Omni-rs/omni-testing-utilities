@@ -1,3 +1,6 @@
+use bitcoin::hashes::{ripemd160, Hash};
+use bitcoin::opcodes::all::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160};
+use bitcoin::script::Builder;
 use bs58;
 use k256::elliptic_curve::sec1::FromEncodedPoint;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
@@ -24,7 +27,7 @@ impl ScalarExt for Scalar {
     /// This will be very rare with random bytes as the field size is 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
     fn from_bytes(bytes: [u8; 32]) -> Option<Self> {
         let bytes = U256::from_be_slice(bytes.as_slice());
-        Scalar::from_repr(bytes.to_be_byte_array()).into_option()
+        Self::from_repr(bytes.to_be_byte_array()).into_option()
     }
 
     /// When the user can't directly select the value, this will always work
@@ -33,7 +36,7 @@ impl ScalarExt for Scalar {
         // This should never happen.
         // The space of inputs is 2^256, the space of the field is ~2^256 - 2^129.
         // This mean that you'd have to run 2^127 hashes to find a value that causes this to fail.
-        Scalar::from_bytes(hash).expect("Derived epsilon value falls outside of the field")
+        Self::from_bytes(hash).expect("Derived epsilon value falls outside of the field")
     }
 }
 
@@ -54,6 +57,7 @@ pub fn derive_key(public_key: PublicKey, epsilon: Scalar) -> PublicKey {
 }
 
 const ROOT_PUBLIC_KEY: &str = "secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3";
+
 pub struct DerivedAddress {
     pub address: String,
     pub public_key: PublicKey,
@@ -68,6 +72,46 @@ pub fn get_derived_address(predecessor_id: &AccountId, path: &str) -> DerivedAdd
         address,
         public_key: derived_public_key,
     }
+}
+
+pub fn get_public_key_hash(derived_address: &DerivedAddress) -> Vec<u8> {
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+
+    // Calculate publish key hash
+    let sha256_hash = Sha256::digest(derived_public_key_bytes_array);
+    let ripemd160_hash = ripemd160::Hash::hash(&sha256_hash);
+
+    // The script_pubkey for the NEAR contract to be the spender
+    let near_contract_script_pubkey = Builder::new()
+        .push_opcode(OP_DUP)
+        .push_opcode(OP_HASH160)
+        .push_slice(ripemd160_hash.as_byte_array())
+        .push_opcode(OP_EQUALVERIFY)
+        .push_opcode(OP_CHECKSIG)
+        .into_script();
+
+    near_contract_script_pubkey.as_bytes().to_vec()
+}
+
+pub fn build_script_sig_as_bytes(
+    derived_address: DerivedAddress,
+    signature: bitcoin::ecdsa::Signature,
+) -> Vec<u8> {
+    // Create the public key from the derived address
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+    let secp_pubkey = bitcoin::secp256k1::PublicKey::from_slice(derived_public_key_bytes_array)
+        .expect("Invalid public key");
+
+    let bitcoin_pubkey = bitcoin::PublicKey::new_uncompressed(secp_pubkey);
+
+    let script_sig_new = Builder::new()
+        .push_slice(signature.serialize())
+        .push_key(&bitcoin_pubkey)
+        .into_script();
+
+    script_sig_new.as_bytes().to_vec()
 }
 
 fn convert_string_to_public_key(encoded: &str) -> Result<PublicKey, String> {
@@ -93,13 +137,21 @@ fn convert_string_to_public_key(encoded: &str) -> Result<PublicKey, String> {
     Ok(public_key)
 }
 
+#[allow(dead_code)]
+fn public_key_to_hex(public_key: AffinePoint) -> String {
+    let encoded_point = public_key.to_encoded_point(false);
+    let encoded_point_bytes = encoded_point.as_bytes();
+
+    hex::encode(encoded_point_bytes)
+}
+
 fn public_key_to_btc_address(public_key: AffinePoint, network: &str) -> String {
     let encoded_point = public_key.to_encoded_point(false);
     let public_key_bytes = encoded_point.as_bytes();
 
     let sha256_hash = Sha256::digest(public_key_bytes);
 
-    let ripemd160_hash = Ripemd160::digest(&sha256_hash);
+    let ripemd160_hash = Ripemd160::digest(sha256_hash);
 
     let network_byte = if network == "bitcoin" { 0x00 } else { 0x6f };
     let mut address_bytes = vec![network_byte];
@@ -111,7 +163,7 @@ fn public_key_to_btc_address(public_key: AffinePoint, network: &str) -> String {
 fn base58check_encode(data: &[u8]) -> String {
     // Perform a double SHA-256 hash on the data
     let hash1 = Sha256::digest(data);
-    let hash2 = Sha256::digest(&hash1);
+    let hash2 = Sha256::digest(hash1);
 
     // Take the first 4 bytes of the second hash as the checksum
     let checksum = &hash2[..4];
