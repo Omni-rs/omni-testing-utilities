@@ -28,7 +28,7 @@ pub async fn compile_and_deploy_contract(
 
     // Get the block hash and nonce
     let result = get_nonce_and_block_hash(
-        &near_json_rpc_client,
+        near_json_rpc_client,
         user_account.account_id.clone(),
         user_account.public_key.clone(),
     )
@@ -60,7 +60,7 @@ pub async fn compile_and_deploy_contract(
         wait_until: TxExecutionStatus::Final,
     };
 
-    let _ = send_transaction(&near_json_rpc_client, request).await?;
+    let _ = send_transaction(near_json_rpc_client, request).await?;
 
     println!("Contract deployed");
 
