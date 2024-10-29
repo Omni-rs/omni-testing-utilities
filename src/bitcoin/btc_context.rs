@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use std::str::FromStr as _;
 
 use crate::address::DerivedAddress;
+
 pub struct UserInfo {
     pub address: Address,
     pub script_pubkey: ScriptBuf,
@@ -250,6 +251,18 @@ impl<'a> BTCTestContext<'a> {
             unspents.iter().take(count).cloned().collect();
 
         Ok(selected_unspents)
+    }
+
+    pub fn assert_utxos_for_address(&self, address: Address, number_of_utxos: usize) {
+        let unspent_utxos: Vec<serde_json::Value> = self.get_utxo_for_address(&address).unwrap();
+
+        assert!(
+            unspent_utxos.len() == number_of_utxos,
+            "Expected {} UTXOs for address {}, but found {}",
+            number_of_utxos,
+            address,
+            unspent_utxos.len()
+        );
     }
 
     pub fn get_utxo_for_address(
