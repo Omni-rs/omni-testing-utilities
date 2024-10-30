@@ -103,7 +103,9 @@ pub async fn send_transaction(
     match client.call(request.clone()).await {
         Ok(response) => Ok(response),
         Err(err) => {
-            if matches!(err.handler_error(), Some(RpcTransactionError::TimeoutError)) {
+            if matches!(err.handler_error(), Some(RpcTransactionError::TimeoutError))
+                || err.to_string().contains("408 Request Timeout")
+            {
                 let tx_hash = request.signed_transaction.get_hash();
                 let sender_account_id = request.signed_transaction.transaction.signer_id().clone();
                 wait_for_transaction(client, tx_hash, sender_account_id, sent_at).await
@@ -145,7 +147,9 @@ pub async fn wait_for_transaction(
                 return Ok(response);
             }
             Err(err) => {
-                if matches!(err.handler_error(), Some(RpcTransactionError::TimeoutError)) {
+                if matches!(err.handler_error(), Some(RpcTransactionError::TimeoutError))
+                    || err.to_string().contains("408 Request Timeout")
+                {
                     continue;
                 }
                 return Err(err.into());
