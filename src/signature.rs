@@ -1,7 +1,7 @@
 use bitcoin::secp256k1::ecdsa::Signature;
 use bitcoin::secp256k1::{self};
 use near_jsonrpc_client::methods::tx::RpcTransactionResponse;
-use near_primitives::views::FinalExecutionStatus;
+use near_primitives::views::{ExecutionStatusView, FinalExecutionStatus};
 
 pub fn extract_big_r_and_s(response: &RpcTransactionResponse) -> Result<(String, String), String> {
     if let Some(near_primitives::views::FinalExecutionOutcomeViewEnum::FinalExecutionOutcome(
@@ -48,4 +48,37 @@ pub fn create_signature(big_r_hex: &str, s_hex: &str) -> Result<Signature, secp2
     let signature = Signature::from_compact(&signature_bytes)?;
 
     Ok(signature)
+}
+
+pub fn extract_multiple_signatures(
+    response: &RpcTransactionResponse,
+) -> Result<Vec<(String, String)>, String> {
+    let mut signatures = Vec::new();
+
+    if let Some(near_primitives::views::FinalExecutionOutcomeViewEnum::FinalExecutionOutcome(
+        final_outcome,
+    )) = &response.final_execution_outcome
+    {
+        for receipt in &final_outcome.receipts_outcome {
+            if let ExecutionStatusView::SuccessValue(success_value) = &receipt.outcome.status {
+                if let Ok(success_value_str) = String::from_utf8(success_value.clone()) {
+                    if let Ok(inner) = serde_json::from_str::<serde_json::Value>(&success_value_str)
+                    {
+                        if let (Some(big_r), Some(s)) = (
+                            inner["big_r"]["affine_point"].as_str(),
+                            inner["s"]["scalar"].as_str(),
+                        ) {
+                            signatures.push((big_r.to_string(), s.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if signatures.is_empty() {
+        return Err("No signatures found".to_string());
+    }
+
+    Ok(signatures)
 }
