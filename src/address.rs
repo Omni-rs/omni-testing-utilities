@@ -90,7 +90,7 @@ pub fn get_public_key_as_bytes(derived_address: &DerivedAddress) -> Vec<u8> {
     let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
     let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
 
-    let bitcoin_pubkey = CompressedPublicKey::from_slice(&derived_public_key_bytes_array)
+    let bitcoin_pubkey = CompressedPublicKey::from_slice(derived_public_key_bytes_array)
         .expect("Invalid public key");
 
     bitcoin_pubkey.to_bytes().to_vec()
@@ -206,7 +206,7 @@ pub fn public_key_to_hash(public_key: AffinePoint) -> Vec<u8> {
     let public_key_bytes = encoded_point.as_bytes();
 
     let compressed_pubkey =
-        CompressedPublicKey::from_slice(&public_key_bytes).expect("Invalid pubkey");
+        CompressedPublicKey::from_slice(public_key_bytes).expect("Invalid pubkey");
 
     let pubkey_hash = compressed_pubkey.wpubkey_hash();
 
@@ -219,7 +219,7 @@ pub fn public_key_to_btc_segwit_address(public_key: AffinePoint, network: &str) 
     let public_key_bytes = encoded_point.as_bytes();
 
     let compressed_pubkey =
-        CompressedPublicKey::from_slice(&public_key_bytes).expect("Invalid pubkey");
+        CompressedPublicKey::from_slice(public_key_bytes).expect("Invalid pubkey");
 
     let network = if network == "testnet" {
         Network::Regtest
@@ -251,7 +251,6 @@ fn base58check_encode(data: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin::{CompressedPublicKey, PublicKey as BitcoinPublicKey, WPubkeyHash};
 
     #[test]
     fn test_derive_epsilon() {
