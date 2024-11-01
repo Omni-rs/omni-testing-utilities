@@ -12,6 +12,6 @@ fmt:
 check:
     cargo check
     
-# TODO: Run all tests
-test-all:
+# Run all tests
+test-unit:
     cargo test --workspace -- --nocapture
