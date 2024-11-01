@@ -1,6 +1,7 @@
 use bitcoin::hashes::{ripemd160, Hash};
 use bitcoin::opcodes::all::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160};
 use bitcoin::script::Builder;
+use bitcoin::{Address, CompressedPublicKey, Network};
 use bs58;
 use k256::elliptic_curve::sec1::FromEncodedPoint;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
@@ -63,6 +64,17 @@ pub struct DerivedAddress {
     pub public_key: PublicKey,
 }
 
+pub fn get_derived_address_for_segwit(predecessor_id: &AccountId, path: &str) -> DerivedAddress {
+    let epsilon = derive_epsilon(predecessor_id, path);
+    let public_key = convert_string_to_public_key(ROOT_PUBLIC_KEY).unwrap();
+    let derived_public_key = derive_key(public_key, epsilon);
+    let address = public_key_to_btc_segwit_address(derived_public_key, "testnet");
+    DerivedAddress {
+        address,
+        public_key: derived_public_key,
+    }
+}
+
 pub fn get_derived_address(predecessor_id: &AccountId, path: &str) -> DerivedAddress {
     let epsilon = derive_epsilon(predecessor_id, path);
     let public_key = convert_string_to_public_key(ROOT_PUBLIC_KEY).unwrap();
@@ -74,7 +86,33 @@ pub fn get_derived_address(predecessor_id: &AccountId, path: &str) -> DerivedAdd
     }
 }
 
+pub fn get_public_key_as_bytes(derived_address: &DerivedAddress) -> Vec<u8> {
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+
+    let bitcoin_pubkey = CompressedPublicKey::from_slice(&derived_public_key_bytes_array)
+        .expect("Invalid public key");
+
+    bitcoin_pubkey.to_bytes().to_vec()
+}
+
+/// Obtains the public key hash from a derived address
 pub fn get_public_key_hash(derived_address: &DerivedAddress) -> Vec<u8> {
+    // Create the public key from the derived address
+    let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
+    let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
+
+    let secp_pubkey = bitcoin::secp256k1::PublicKey::from_slice(derived_public_key_bytes_array)
+        .expect("Invalid public key");
+
+    let bitcoin_pubkey = bitcoin::PublicKey::new(secp_pubkey);
+
+    let wpkh: bitcoin::WPubkeyHash = bitcoin_pubkey.wpubkey_hash().unwrap();
+
+    wpkh.to_byte_array().to_vec()
+}
+
+pub fn get_script_pub_key(derived_address: &DerivedAddress) -> Vec<u8> {
     let derived_public_key_bytes = derived_address.public_key.to_encoded_point(false); // Ensure this method exists
     let derived_public_key_bytes_array = derived_public_key_bytes.as_bytes();
 
@@ -114,6 +152,7 @@ pub fn build_script_sig_as_bytes(
     script_sig_new.as_bytes().to_vec()
 }
 
+/// Converts a string-encoded public key to a public key (AffinePoint) non compressed
 fn convert_string_to_public_key(encoded: &str) -> Result<PublicKey, String> {
     let base58_part = encoded.strip_prefix("secp256k1:").ok_or("Invalid prefix")?;
 
@@ -145,6 +184,7 @@ fn public_key_to_hex(public_key: AffinePoint) -> String {
     hex::encode(encoded_point_bytes)
 }
 
+/// Converts a public key to a Bitcoin address using P2PKH (Legacy)
 fn public_key_to_btc_address(public_key: AffinePoint, network: &str) -> String {
     let encoded_point = public_key.to_encoded_point(false);
     let public_key_bytes = encoded_point.as_bytes();
@@ -158,6 +198,38 @@ fn public_key_to_btc_address(public_key: AffinePoint, network: &str) -> String {
     address_bytes.extend_from_slice(&ripemd160_hash);
 
     base58check_encode(&address_bytes)
+}
+
+/// Converts a public key to a public key hash
+pub fn public_key_to_hash(public_key: AffinePoint) -> Vec<u8> {
+    let encoded_point = public_key.to_encoded_point(false);
+    let public_key_bytes = encoded_point.as_bytes();
+
+    let compressed_pubkey =
+        CompressedPublicKey::from_slice(&public_key_bytes).expect("Invalid pubkey");
+
+    let pubkey_hash = compressed_pubkey.wpubkey_hash();
+
+    pubkey_hash.to_byte_array().to_vec()
+}
+
+/// Converts a public key to a Bitcoin address using P2WPKH (SegWit)
+pub fn public_key_to_btc_segwit_address(public_key: AffinePoint, network: &str) -> String {
+    let encoded_point = public_key.to_encoded_point(false);
+    let public_key_bytes = encoded_point.as_bytes();
+
+    let compressed_pubkey =
+        CompressedPublicKey::from_slice(&public_key_bytes).expect("Invalid pubkey");
+
+    let network = if network == "testnet" {
+        Network::Regtest
+    } else {
+        Network::Bitcoin
+    };
+
+    let segwit_address = Address::p2wpkh(&compressed_pubkey, network);
+
+    segwit_address.to_string()
 }
 
 fn base58check_encode(data: &[u8]) -> String {
@@ -179,6 +251,7 @@ fn base58check_encode(data: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitcoin::{CompressedPublicKey, PublicKey as BitcoinPublicKey, WPubkeyHash};
 
     #[test]
     fn test_derive_epsilon() {
